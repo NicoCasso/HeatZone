@@ -6,10 +6,14 @@ import time
 from rectangle import Rectangle
 from interest_zone import InterestZone
 from status import Status
+from database import DatabaseManager
 
 st.title("📷 Webcam en direct avec détection améliorée de mouvement")
-
+db = DatabaseManager("zones.db")
+db.create_table()
 model = YOLO("yolov8n.pt")
+db.insert_zone()
+db.insert_zone()
 
 if "run" not in st.session_state:
     st.session_state["run"] = False
@@ -90,6 +94,7 @@ if st.session_state["run"]:
                             for id in near_zone :
                                 zone = interest_zones[id]
                                 current_color = zone.color
+                                db.add_element(id)
 
                     cv2.rectangle(rgb_frame, (x1, y1), (x2, y2), current_color, 2)
                     cv2.putText(
