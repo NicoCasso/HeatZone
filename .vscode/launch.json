@@ -1,0 +1,18 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Debug Streamlit (fichier actif)",
+      "type": "python",
+      "request": "launch",
+      "program": "streamlit",
+      "args": [
+        "run",
+        "${fileBasename}" // <-- utilise le fichier actuellement ouvert dans l'éditeur
+      ],
+      "console": "integratedTerminal",
+      "cwd": "${fileDirname}",
+      "justMyCode": false
+    }
+  ]
+}
