@@ -3,6 +3,7 @@ import cv2
 import numpy as np
 from ultralytics import YOLO
 import time
+from rectangle import Rectangle
 
 st.title("📷 Webcam en direct avec détection améliorée de mouvement")
 
@@ -40,8 +41,20 @@ if st.session_state["run"]:
 
             results = model.predict(rgb_frame, conf=0.4)[0]
 
+
+            interest_zone = Rectangle(300, 50, 350, 400)
+            interest_color =  (0, 0, 255)
+
             for box in results.boxes:
                 x1, y1, x2, y2 = map(int, box.xyxy[0])
+                
+                current_rectangle = Rectangle(x1,y1,x2,y2)
+                current_color = (0, 255, 0)
+
+                if current_rectangle.is_near_from(interest_zone) :
+                    current_color = (255, 0, 0)
+
+
                 cls_id = int(box.cls[0])
                 label = model.names[cls_id]
                 conf = box.conf[0]
@@ -59,7 +72,7 @@ if st.session_state["run"]:
 
                     status = "Walking" if motion_level > 1500 else "Standing"
 
-                    cv2.rectangle(rgb_frame, (x1, y1), (x2, y2), (0, 255, 0), 2)
+                    cv2.rectangle(rgb_frame, (x1, y1), (x2, y2), current_color, 2)
                     cv2.putText(
                         rgb_frame,
                         f"{status} ({conf:.2f})",
@@ -69,6 +82,9 @@ if st.session_state["run"]:
                         (255, 255, 0),
                         2,
                     )
+
+            # Ajout du rectangle bleu
+            cv2.rectangle(rgb_frame, (interest_zone.x1, interest_zone.y1), (interest_zone.x2, interest_zone.y2), interest_color, 3)
 
             frame_window.image(rgb_frame, channels="RGB")
 
