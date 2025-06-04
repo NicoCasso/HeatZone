@@ -3,7 +3,7 @@ import cv2
 import numpy as np
 from ultralytics import YOLO
 import time
-from datetime import datetime  # ✅ Added
+from datetime import datetime
 from rectangle import Rectangle
 from interest_zone import InterestZone
 from status import Status
@@ -15,7 +15,7 @@ st.title("📷 Webcam en direct avec détection améliorée de mouvement")
 # --- Initialize Database ---
 db = DatabaseManager("zones.db")
 db.create_table_zones()
-db.create_table_passage()  # ✅ Ensure PASSAGE table is created
+db.create_table_passage()
 db.insert_zone(1)
 db.insert_zone(2)
 
@@ -120,10 +120,7 @@ if st.session_state["run"]:
                                         st.session_state["counted_people"][zone_id] = set()
                                     if person_id not in st.session_state["counted_people"][zone_id]:
                                         db.add_element(zone_id)
-
-                                        # ✅ Log the timestamp in PASSAGE
                                         db.add_time(zone_id, datetime.now().isoformat())
-
                                         st.session_state["counted_people"][zone_id].add(person_id)
                     else:
                         for zone_id in interest_zones:
@@ -131,10 +128,17 @@ if st.session_state["run"]:
                             if key in st.session_state["standing_timers"]:
                                 del st.session_state["standing_timers"][key]
 
-                    current_color = (0, 255, 0)
+                    # --- BOUNDING BOX COLOR LOGIC ---
+                    current_color = (0, 255, 0)  # Default: green
                     if status == Status.STANDING and len(near_zone) > 0:
-                        current_color = interest_zones[near_zone[0]].color
+                        for zone_id in near_zone:
+                            if person_id in st.session_state["counted_people"].get(zone_id, set()):
+                                current_color = (0, 165, 255)  # Orange if already added
+                            else:
+                                current_color = interest_zones[zone_id].color  # Zone color
+                            break  # Use first matched zone
 
+                    # --- Draw bounding box and label ---
                     cv2.rectangle(rgb_frame, (x1, y1), (x2, y2), current_color, 2)
                     cv2.putText(
                         rgb_frame,
@@ -146,6 +150,7 @@ if st.session_state["run"]:
                         2,
                     )
 
+            # --- Draw Zones ---
             for zone in interest_zones.values():
                 cv2.rectangle(
                     rgb_frame,
@@ -155,6 +160,11 @@ if st.session_state["run"]:
                     3,
                 )
 
+            # --- Draw Legend ---
+            cv2.putText(rgb_frame, "Zone Color: Before Logging", (10, 20), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255,255,255), 1)
+            cv2.putText(rgb_frame, "Green Box: Person", (10, 40), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0,255,0), 1)
+            cv2.putText(rgb_frame, "Orange Box: Already Logged", (10, 60), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0,165,255), 1)
+
             frame_window.image(rgb_frame, channels="RGB")
             prev_gray = gray
             time.sleep(0.03)
@@ -163,6 +173,7 @@ if st.session_state["run"]:
         db.close()
 else:
     st.write("Cliquez sur ▶️ Démarrer pour lancer la webcam.")
+
 
 
 
