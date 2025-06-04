@@ -17,9 +17,11 @@ db.create_table()
 db.insert_zone(1)
 db.insert_zone(2)
 
-# --- Track counted people ---
+# --- Track counted people and timers ---
 if "counted_people" not in st.session_state:
     st.session_state["counted_people"] = {}  # format: {zone_id: set of person_ids}
+if "standing_timers" not in st.session_state:
+    st.session_state["standing_timers"] = {}  # format: {(zone_id, person_id): start_time}
 
 # --- YOLOv8 Model ---
 model = YOLO("yolov8n.pt")
@@ -76,6 +78,8 @@ if st.session_state["run"]:
                 second_zone.id: second_zone,
             }
 
+            current_time = time.time()
+
             for box in results.boxes:
                 x1, y1, x2, y2 = map(int, box.xyxy[0])
                 current_rectangle = Rectangle(x1, y1, x2, y2)
@@ -90,7 +94,6 @@ if st.session_state["run"]:
                 conf = box.conf[0]
 
                 if label == "person":
-                    # Motion detection in leg region
                     leg_region_prev = prev_gray[y1 + (y2 - y1) // 2 : y2, x1:x2]
                     leg_region_curr = gray[y1 + (y2 - y1) // 2 : y2, x1:x2]
 
@@ -100,21 +103,35 @@ if st.session_state["run"]:
 
                     status = Status.WALKING if motion_level > 1500 else Status.STANDING
 
+                    # Use YOLO tracking ID if available
+                    person_id = str(int(box.id)) if hasattr(box, 'id') and box.id is not None else get_bbox_id(x1, y1, x2, y2)
+
                     zone_text = ""
-                    if status == Status.STANDING and len(near_zone) != 0:
+                    if status == Status.STANDING and len(near_zone) > 0:
                         zone_text = f" Z: {near_zone}"
 
-                        # Use YOLO tracking ID if available
-                        person_id = str(int(box.id)) if hasattr(box, 'id') and box.id is not None else get_bbox_id(x1, y1, x2, y2)
-
                         for zone_id in near_zone:
-                            if zone_id not in st.session_state["counted_people"]:
-                                st.session_state["counted_people"][zone_id] = set()
+                            key = (zone_id, person_id)
 
-                            if person_id not in st.session_state["counted_people"][zone_id]:
-                                db.add_element(zone_id)
-                                st.session_state["counted_people"][zone_id].add(person_id)
+                            # Start or check the timer
+                            if key not in st.session_state["standing_timers"]:
+                                st.session_state["standing_timers"][key] = current_time
+                            else:
+                                elapsed = current_time - st.session_state["standing_timers"][key]
+                                if elapsed >= 2:  # Threshold: 2 seconds
+                                    if zone_id not in st.session_state["counted_people"]:
+                                        st.session_state["counted_people"][zone_id] = set()
+                                    if person_id not in st.session_state["counted_people"][zone_id]:
+                                        db.add_element(zone_id)
+                                        st.session_state["counted_people"][zone_id].add(person_id)
+                    else:
+                        # Reset any timers if not standing or not in a zone
+                        for zone_id in interest_zones:
+                            key = (zone_id, person_id)
+                            if key in st.session_state["standing_timers"]:
+                                del st.session_state["standing_timers"][key]
 
+                    # Draw bounding box
                     current_color = (0, 255, 0)
                     if status == Status.STANDING and len(near_zone) > 0:
                         current_color = interest_zones[near_zone[0]].color
