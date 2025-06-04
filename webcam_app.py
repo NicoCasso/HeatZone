@@ -14,8 +14,8 @@ st.title("📷 Webcam en direct avec détection améliorée de mouvement")
 # --- Initialize Database ---
 db = DatabaseManager("zones.db")
 db.create_table()
-db.insert_zone()  # Ensure zone 1 exists
-db.insert_zone()  # Ensure zone 2 exists
+db.insert_zone(1)
+db.insert_zone(2)
 
 # --- Track counted people ---
 if "counted_people" not in st.session_state:
