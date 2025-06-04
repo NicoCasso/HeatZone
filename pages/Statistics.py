@@ -24,8 +24,6 @@ st.metric("Zone 1 (Bleu)", zone_counts[1])
 st.metric("Zone 2 (Violet)", zone_counts[2])
 
 # --- Heatmap Data ---
-# Simulate a 10x10 grid with zones 1 and 2 manually placed
-# You can adjust these positions to match your actual zones' screen coordinates
 grid = np.zeros((10, 10))
 
 # Example: Zone 1 in top-right, Zone 2 in middle-left
@@ -38,12 +36,32 @@ fig = go.Figure(data=go.Heatmap(
     colorscale="Viridis",
     colorbar=dict(title="Nombre d'arrêts")
 ))
+
+# Add annotations for zones
+annotations = [
+    dict(
+        x=7.5,  # x position in heatmap coordinates (center of zone 1)
+        y=3.5,  # y position in heatmap coordinates (center of zone 1)
+        text="Zone 1 (Bleu)",
+        showarrow=False,
+        font=dict(color="white", size=14)
+    ),
+    dict(
+        x=2.5,  # center of zone 2 horizontally
+        y=6,    # center of zone 2 vertically
+        text="Zone 2 (Violet)",
+        showarrow=False,
+        font=dict(color="white", size=14)
+    )
+]
+
 fig.update_layout(
     title="🗺️ Carte de chaleur des zones",
     xaxis=dict(showticklabels=False),
     yaxis=dict(showticklabels=False),
     height=500,
-    width=500
+    width=500,
+    annotations=annotations
 )
 
 st.plotly_chart(fig)
