@@ -5,6 +5,7 @@ from ultralytics import YOLO
 import time
 from rectangle import Rectangle
 from interest_zone import InterestZone
+from interest_zone_manager import InterestZoneManager
 from status import Status
 
 st.title("📷 Webcam en direct avec détection améliorée de mouvement")
@@ -22,7 +23,25 @@ if start_button:
 if stop_button:
     st.session_state["run"] = False
 
-frame_window = st.empty()
+left_side, right_side = st.columns([7,3])
+
+frame_window = left_side.empty()
+right_side.subheader("zones")
+
+izm = InterestZoneManager()
+izm.initialize()
+
+for id, zone in izm.zones.items():
+    right_side.write(f"    zone {id} : {zone.name}")
+            
+# if right_side.button("Ajouter la zone"):
+#         new_zone = InterestZone(
+#             id=len(izm.zones) + 1,
+#             name=f"Zone {len(izm.zones) + 1}",
+#             color=(0, 255, 0),  # Vert par défaut
+#             rectangle=Rectangle(x1, y1, x2, y2)
+#         )
+#         izm.zones[new_zone.id] = new_zone
 
 if st.session_state["run"]:
     camera = cv2.VideoCapture(0)
@@ -42,22 +61,19 @@ if st.session_state["run"]:
             gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
 
             results = model.predict(rgb_frame, conf=0.4)[0]
-          
-            first_zone = InterestZone(1, "bleu", (0, 0, 255), Rectangle(300, 50, 350, 400))
-            second_zone = InterestZone(2, "violet", (255, 0, 255), Rectangle(50, 150, 150, 250))
 
-            interest_zones = {}
-            interest_zones[first_zone.id] = first_zone
-            interest_zones[second_zone.id] = second_zone
+            
+            
 
+            
             for box in results.boxes:
                 x1, y1, x2, y2 = map(int, box.xyxy[0])
 
                 current_rectangle = Rectangle(x1,y1,x2,y2)
                 near_zone = []
-                for zone in interest_zones.values() :
+                for zone in izm.zones.values() :
                     zone : InterestZone = zone
-                    if current_rectangle.is_near_from(zone.rectangle) :
+                    if current_rectangle.is_near_from(zone.rect) :
                         near_zone.append(zone.id) 
 
                 cls_id = int(box.cls[0])
@@ -88,7 +104,7 @@ if st.session_state["run"]:
                                 zone_text = f" Z: {near_zone}"
 
                             for id in near_zone :
-                                zone = interest_zones[id]
+                                zone = izm.zones[id]
                                 current_color = zone.color
 
                     cv2.rectangle(rgb_frame, (x1, y1), (x2, y2), current_color, 2)
@@ -102,12 +118,12 @@ if st.session_state["run"]:
                         2,
                     )
 
-            for zone in interest_zones.values() :
-                interest_zone : InterestZone = zone
+            for zone in izm.zones.values() :
+                iz : InterestZone = zone
                 cv2.rectangle(rgb_frame, 
-                              (interest_zone.rectangle.x1, interest_zone.rectangle.y1), 
-                              (interest_zone.rectangle.x2, interest_zone.rectangle.y2), 
-                              interest_zone.color, 3)
+                              (iz.rect.x1, iz.rect.y1), 
+                              (iz.rect.x2, iz.rect.y2), 
+                              iz.color, 3)
 
             frame_window.image(rgb_frame, channels="RGB")
 
