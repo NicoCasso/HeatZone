@@ -15,11 +15,16 @@ def run_detection_loop(model, db, frame_window):
         return
 
     ret, prev_frame = camera.read()
+    if not ret:
+        st.error("❌ Impossible de lire le flux vidéo initial.")
+        return
+
     prev_gray = cv2.cvtColor(prev_frame, cv2.COLOR_BGR2GRAY)
 
-    # Initialize cooldown dictionary in session state
-    if "last_counted" not in st.session_state:
-        st.session_state["last_counted"] = {}
+    # Initialize session state values
+    st.session_state.setdefault("standing_timers", {})
+    st.session_state.setdefault("counted_people", {})
+    st.session_state.setdefault("last_counted", {})
 
     while st.session_state["run"]:
         ret, frame = camera.read()
@@ -37,79 +42,80 @@ def run_detection_loop(model, db, frame_window):
             x1, y1, x2, y2 = map(int, box.xyxy[0])
             current_rectangle = Rectangle(x1, y1, x2, y2)
 
-            near_zone = [
+            # Identify zone(s) near person
+            near_zone_ids = [
                 zone.id for zone in interest_zones.values()
                 if current_rectangle.is_near_from(zone.rectangle)
             ]
 
             cls_id = int(box.cls[0])
             label = model.names[cls_id]
-            conf = box.conf[0]
+            conf = float(box.conf[0])
 
-            if label == "person":
-                leg_region_prev = prev_gray[y1 + (y2 - y1) // 2 : y2, x1:x2]
-                leg_region_curr = gray[y1 + (y2 - y1) // 2 : y2, x1:x2]
-                diff = cv2.absdiff(leg_region_curr, leg_region_prev)
-                _, diff_thresh = cv2.threshold(diff, 25, 255, cv2.THRESH_BINARY)
-                motion_level = np.sum(diff_thresh) / 255
+            if label != "person":
+                continue
 
-                status = Status.WALKING if motion_level > 1500 else Status.STANDING
-                person_id = str(int(box.id)) if hasattr(box, 'id') and box.id is not None else get_bbox_id(x1, y1, x2, y2)
+            # Determine stable person ID
+            if hasattr(box, 'id') and box.id is not None:
+                person_id = str(int(box.id))
+            else:
+                person_id = get_bbox_id(x1, y1, x2, y2, tolerance=15)
 
-                # Initialize sets and dicts if needed
-                for zone_id in near_zone:
-                    if zone_id not in st.session_state.get("counted_people", {}):
-                        st.session_state.setdefault("counted_people", {})[zone_id] = set()
-                    if zone_id not in st.session_state["last_counted"]:
-                        st.session_state["last_counted"][zone_id] = {}
+            # Motion detection in leg region
+            leg_region_prev = prev_gray[y1 + (y2 - y1) // 2 : y2, x1:x2]
+            leg_region_curr = gray[y1 + (y2 - y1) // 2 : y2, x1:x2]
+            diff = cv2.absdiff(leg_region_curr, leg_region_prev)
+            _, diff_thresh = cv2.threshold(diff, 25, 255, cv2.THRESH_BINARY)
+            motion_level = np.sum(diff_thresh) / 255
 
-                if status == Status.STANDING and near_zone:
-                    for zone_id in near_zone:
-                        key = (zone_id, person_id)
-                        # Standing timers init
-                        if key not in st.session_state["standing_timers"]:
-                            st.session_state["standing_timers"][key] = current_time
-                        else:
-                            elapsed = current_time - st.session_state["standing_timers"][key]
-                            if elapsed >= 2:
-                                last_time = st.session_state["last_counted"][zone_id].get(person_id, 0)
-                                cooldown = 10  # seconds to prevent double count
-                                if person_id not in st.session_state["counted_people"][zone_id] and (current_time - last_time) > cooldown:
-                                    db.add_element(zone_id)
-                                    db.add_time(zone_id, datetime.now().isoformat())
-                                    st.session_state["counted_people"][zone_id].add(person_id)
-                                    st.session_state["last_counted"][zone_id][person_id] = current_time
+            status = Status.WALKING if motion_level > 1500 else Status.STANDING
 
+            for zone_id in near_zone_ids:
+                st.session_state["counted_people"].setdefault(zone_id, set())
+                st.session_state["last_counted"].setdefault(zone_id, {})
+
+                key = (zone_id, person_id)
+
+                if status == Status.STANDING:
+                    if key not in st.session_state["standing_timers"]:
+                        st.session_state["standing_timers"][key] = current_time
+                    else:
+                        elapsed = current_time - st.session_state["standing_timers"][key]
+                        last_count_time = st.session_state["last_counted"][zone_id].get(person_id, 0)
+
+                        if elapsed >= 2 and (current_time - last_count_time) > 10:
+                            # Not counted recently
+                            if person_id not in st.session_state["counted_people"][zone_id]:
+                                db.add_element(zone_id)
+                                db.add_time(zone_id, datetime.now().isoformat())
+                                st.session_state["counted_people"][zone_id].add(person_id)
+                                st.session_state["last_counted"][zone_id][person_id] = current_time
                 else:
-                    # Clear timers for all zones for this person if not standing near them
-                    for zone_id in interest_zones:
-                        key = (zone_id, person_id)
-                        st.session_state["standing_timers"].pop(key, None)
+                    # Clear timer when no longer standing
+                    st.session_state["standing_timers"].pop(key, None)
 
-                # Draw bounding box color logic
-                current_color = (0, 255, 0)  # green by default
-                if status == Status.STANDING and near_zone:
-                    for zone_id in near_zone:
-                        if person_id in st.session_state["counted_people"].get(zone_id, set()):
-                            current_color = (0, 165, 255)  # orange if already logged
-                        else:
-                            current_color = interest_zones[zone_id].color
-                        break
+            # Draw bounding box
+            if status == Status.STANDING and near_zone_ids:
+                for zone_id in near_zone_ids:
+                    if person_id in st.session_state["counted_people"].get(zone_id, set()):
+                        current_color = (0, 165, 255)  # orange (already counted)
+                    else:
+                        current_color = interest_zones[zone_id].color  # zone color
+                    break
+            else:
+                current_color = (0, 255, 0)  # green
 
-                zone_text = f" Z: {near_zone}" if near_zone and status == Status.STANDING else ""
-                cv2.rectangle(rgb_frame, (x1, y1), (x2, y2), current_color, 2)
-                cv2.putText(
-                    rgb_frame,
-                    f"{status} ({conf:.2f}){zone_text}",
-                    (x1, y1 - 10),
-                    cv2.FONT_HERSHEY_SIMPLEX,
-                    0.7,
-                    (255, 255, 0),
-                    2,
-                )
-
-                # Debug info for tracking IDs and zones
-                st.write(f"Person ID: {person_id}, Zones: {near_zone}, Status: {status}")
+            zone_text = f" Z: {near_zone_ids}" if near_zone_ids else ""
+            cv2.rectangle(rgb_frame, (x1, y1), (x2, y2), current_color, 2)
+            cv2.putText(
+                rgb_frame,
+                f"{status} ({conf:.2f}){zone_text}",
+                (x1, y1 - 10),
+                cv2.FONT_HERSHEY_SIMPLEX,
+                0.7,
+                (255, 255, 0),
+                2,
+            )
 
         # Draw zones
         for zone in interest_zones.values():
@@ -132,3 +138,5 @@ def run_detection_loop(model, db, frame_window):
 
     camera.release()
     db.close()
+
+
