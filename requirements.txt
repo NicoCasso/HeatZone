@@ -1,5 +1,6 @@
 streamlit
+streamlit-js-eval
+ultralytics
 opencv-python
 numpy
-ultralytics
-pillow
+Pillow

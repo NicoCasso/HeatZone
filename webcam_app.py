@@ -1,7 +1,10 @@
 import streamlit as st
-from streamlit_drawable_canvas import st_canvas
+from streamlit_js_eval import streamlit_js_eval
 from PIL import Image
 import os
+import base64
+import io
+import json
 
 import cv2
 import numpy as np
@@ -11,6 +14,8 @@ from rectangle import Rectangle
 from interest_zone import InterestZone
 from interest_zone_manager import InterestZoneManager
 from status import Status
+
+LAST_IMAGE_PATH = "./last_frame.jpg"  # chemin local où on stocke la dernière image
 
 #______________________________________________________________________________
 #
@@ -27,17 +32,16 @@ if "run" not in st.session_state:
 
 if st.session_state["run"] == False :
     if left_side.button("▶️ Démarrer") :
+        st.session_state["add_zone"] = False
         st.session_state["run"] = True
         st.rerun()
 
-if not st.session_state["run"]  :
+if st.session_state["run"] == True :
     if left_side.button("⏹️ Arrêter") :
+        st.session_state["add_zone"] = False
         st.session_state["run"] = False
         st.rerun()
-
-    
-
-LAST_IMAGE_PATH = "./last_frame.jpg"  # chemin local où on stocke la dernière image
+   
 model = YOLO("yolov8n.pt")
 
 frame_window = left_side.empty()
@@ -48,15 +52,15 @@ if "add_zone" not in st.session_state:
 if st.session_state["run"] == True :
     if right_side.button("Nouvelle zone"):
         st.session_state["add_zone"] = True
-    st.session_state["add_zone"] = False
-    
-        
 
 izm = InterestZoneManager()
 izm.initialize()
 
 for id, zone in izm.zones.items():
     right_side.write(f"    zone {id} : {zone.name}")
+
+if st.session_state["add_zone"] == False and st.session_state["run"] == True :
+    right_side.write("Cliquez sur Nouvelle zone pour ajouter une zone.")
             
 # if right_side.button("Ajouter la zone"):
 #         new_zone = InterestZone(
@@ -67,7 +71,9 @@ for id, zone in izm.zones.items():
 #         )
 #         izm.zones[new_zone.id] = new_zone
 
-
+#______________________________________________________________________________
+#
+# endregion
 #______________________________________________________________________________
 #
 # region vidéo run
@@ -85,17 +91,33 @@ if st.session_state["run"]:
             if not ret:
                 st.warning("⚠️ Problème de capture vidéo.")
                 break
-            
-            if st.session_state["edit"] == True :
-                # Sauvegarde locale de la dernière frame (BGR)
-                cv2.imwrite(LAST_IMAGE_PATH, frame)
-                st.session_state["run"] = False
 
             rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
             gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
 
+            # region show zones
+            for zone in izm.zones.values() :
+                iz : InterestZone = zone
+                cv2.rectangle(rgb_frame, 
+                              (iz.rect.x1, iz.rect.y1), 
+                              (iz.rect.x2, iz.rect.y2), 
+                              iz.color, 3)
+                
+            # endregion
+                
+            # region save image 
+            if st.session_state["add_zone"] == True:
+                # Sauvegarde locale de la dernière frame (BGR)
+                cv2.imwrite(LAST_IMAGE_PATH, rgb_frame)
+                st.session_state["run"] = False
+                camera.release()
+                st.rerun()
+
+            # endregion
+            
             results = model.predict(rgb_frame, conf=0.4)[0]
             
+            # region show persons
             for box in results.boxes:
                 x1, y1, x2, y2 = map(int, box.xyxy[0])
 
@@ -147,13 +169,7 @@ if st.session_state["run"]:
                         (255, 255, 0),
                         2,
                     )
-
-            for zone in izm.zones.values() :
-                iz : InterestZone = zone
-                cv2.rectangle(rgb_frame, 
-                              (iz.rect.x1, iz.rect.y1), 
-                              (iz.rect.x2, iz.rect.y2), 
-                              iz.color, 3)
+            # endregion
 
             frame_window.image(rgb_frame, channels="RGB")
 
@@ -161,46 +177,53 @@ if st.session_state["run"]:
             time.sleep(0.03)
 
         camera.release()
-else:
-    if st.session_state["run"] :
-        st.write("Cliquez sur ⏹️ Arrêter pour stopper la webcam.")
-    else :
-        st.write("Cliquez sur ▶️ Démarrer pour lancer la webcam.")
-       
 
+#______________________________________________________________________________
+#      
+# endregion
 #______________________________________________________________________________
 #
-# region edit mode
+# region add zone
 #______________________________________________________________________________
-if st.session_state.get("add_zone", False):
+if st.session_state["add_zone"] == True:
+    st.session_state["run"] = False
     if os.path.exists(LAST_IMAGE_PATH):
-        pil_img = Image.open(LAST_IMAGE_PATH)
+        img_bgr = cv2.imread(LAST_IMAGE_PATH)
+        rgb_frame = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2RGB)
 
-        canvas_result = st_canvas(
-            fill_color="rgba(255, 165, 0, 0.3)", 
-            stroke_width=2,
-            stroke_color="#FF0000",
-            background_image=pil_img,
-            height=pil_img.height,
-            width=pil_img.width,
-            drawing_mode="rect",
-            key="canvas"
-        )
+        # Convertir en base64
+        pil_img = Image.fromarray(rgb_frame)
+        buffered = io.BytesIO()
+        pil_img.save(buffered, format="PNG")
+        img_base64 = base64.b64encode(buffered.getvalue()).decode()
+        img_data_uri = f"data:image/png;base64,{img_base64}"
 
-        if canvas_result.json_data is not None:
-            objects = canvas_result.json_data["objects"]
-            if len(objects) > 0:
-                rect = objects[-1]
-                left = rect["left"]
-                top = rect["top"]
-                width = rect["width"]
-                height = rect["height"]
-                right_side.write(f"Zone sélectionnée : Left={left:.1f}, Top={top:.1f}, Width={width:.1f}, Height={height:.1f}")
-    else:
-        right_side.write("Pas d'image capturée pour sélectionner une zone.")
-else:
-    right_side.write("Cliquez sur 'Nouvelle zone' pour ajouter une zone.")
+        # Lire le template HTML (avec canvas et JS pour dessiner la croix)
+        with open("canvas_plus_js.html", "r") as f:
+            html_template = f.read()
 
+        # Injecter l’image dans le template
+        html_filled = html_template.replace("{{IMG_DATA}}", img_data_uri)
 
+        # Affiche l'html via components.html dans un conteneur (frame_window)
+        frame_window = left_side.empty()
+        frame_window.html(html_filled , height=pil_img.height)
 
+        # Puis utilise streamlit_js_eval uniquement pour récupérer les clics
+        coords = streamlit_js_eval(js_expressions=["communication_data"], key="canvas_click")
 
+        if coords:
+            st.write(f"Clic détecté aux coordonnées : {coords}")
+
+    else : 
+        frame_window.write("pas d'image")         
+    
+#______________________________________________________________________________
+#
+#endregion
+#______________________________________________________________________________
+
+if st.session_state["run"] :
+    st.write("Cliquez sur ⏹️ Arrêter pour stopper la webcam.")
+else :
+    st.write("Cliquez sur ▶️ Démarrer pour lancer la webcam.")
