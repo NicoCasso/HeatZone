@@ -1,4 +1,8 @@
 import streamlit as st
+from streamlit_drawable_canvas import st_canvas
+from PIL import Image
+import os
+
 import cv2
 import numpy as np
 from ultralytics import YOLO
@@ -8,25 +12,45 @@ from interest_zone import InterestZone
 from interest_zone_manager import InterestZoneManager
 from status import Status
 
+#______________________________________________________________________________
+#
+# region  initialisation
+#______________________________________________________________________________
+
 st.title("📷 Webcam en direct avec détection améliorée de mouvement")
 
-model = YOLO("yolov8n.pt")
+
+left_side, right_side = st.columns([7,3])
 
 if "run" not in st.session_state:
     st.session_state["run"] = False
 
-start_button = st.button("▶️ Démarrer")
-stop_button = st.button("⏹️ Arrêter")
+if st.session_state["run"] == False :
+    if left_side.button("▶️ Démarrer") :
+        st.session_state["run"] = True
+        st.rerun()
 
-if start_button:
-    st.session_state["run"] = True
-if stop_button:
-    st.session_state["run"] = False
+if not st.session_state["run"]  :
+    if left_side.button("⏹️ Arrêter") :
+        st.session_state["run"] = False
+        st.rerun()
 
-left_side, right_side = st.columns([7,3])
+    
+
+LAST_IMAGE_PATH = "./last_frame.jpg"  # chemin local où on stocke la dernière image
+model = YOLO("yolov8n.pt")
 
 frame_window = left_side.empty()
-right_side.subheader("zones")
+
+if "add_zone" not in st.session_state:
+    st.session_state["add_zone"] = False
+
+if st.session_state["run"] == True :
+    if right_side.button("Nouvelle zone"):
+        st.session_state["add_zone"] = True
+    st.session_state["add_zone"] = False
+    
+        
 
 izm = InterestZoneManager()
 izm.initialize()
@@ -43,6 +67,11 @@ for id, zone in izm.zones.items():
 #         )
 #         izm.zones[new_zone.id] = new_zone
 
+
+#______________________________________________________________________________
+#
+# region vidéo run
+#______________________________________________________________________________
 if st.session_state["run"]:
     camera = cv2.VideoCapture(0)
     if not camera.isOpened():
@@ -56,15 +85,16 @@ if st.session_state["run"]:
             if not ret:
                 st.warning("⚠️ Problème de capture vidéo.")
                 break
+            
+            if st.session_state["edit"] == True :
+                # Sauvegarde locale de la dernière frame (BGR)
+                cv2.imwrite(LAST_IMAGE_PATH, frame)
+                st.session_state["run"] = False
 
             rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
             gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
 
             results = model.predict(rgb_frame, conf=0.4)[0]
-
-            
-            
-
             
             for box in results.boxes:
                 x1, y1, x2, y2 = map(int, box.xyxy[0])
@@ -132,6 +162,45 @@ if st.session_state["run"]:
 
         camera.release()
 else:
-    st.write("Cliquez sur ▶️ Démarrer pour lancer la webcam.")
+    if st.session_state["run"] :
+        st.write("Cliquez sur ⏹️ Arrêter pour stopper la webcam.")
+    else :
+        st.write("Cliquez sur ▶️ Démarrer pour lancer la webcam.")
+       
+
+#______________________________________________________________________________
+#
+# region edit mode
+#______________________________________________________________________________
+if st.session_state.get("add_zone", False):
+    if os.path.exists(LAST_IMAGE_PATH):
+        pil_img = Image.open(LAST_IMAGE_PATH)
+
+        canvas_result = st_canvas(
+            fill_color="rgba(255, 165, 0, 0.3)", 
+            stroke_width=2,
+            stroke_color="#FF0000",
+            background_image=pil_img,
+            height=pil_img.height,
+            width=pil_img.width,
+            drawing_mode="rect",
+            key="canvas"
+        )
+
+        if canvas_result.json_data is not None:
+            objects = canvas_result.json_data["objects"]
+            if len(objects) > 0:
+                rect = objects[-1]
+                left = rect["left"]
+                top = rect["top"]
+                width = rect["width"]
+                height = rect["height"]
+                right_side.write(f"Zone sélectionnée : Left={left:.1f}, Top={top:.1f}, Width={width:.1f}, Height={height:.1f}")
+    else:
+        right_side.write("Pas d'image capturée pour sélectionner une zone.")
+else:
+    right_side.write("Cliquez sur 'Nouvelle zone' pour ajouter une zone.")
+
+
 
 
