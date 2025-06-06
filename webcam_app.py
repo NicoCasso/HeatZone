@@ -203,11 +203,12 @@ if st.session_state["add_zone"] == True:
             html_template = f.read()
 
         # Injecter l’image dans le template
+        html_filled = html_template.replace("{{IMG_HEIGHT}}", pil_img.height)
         html_filled = html_template.replace("{{IMG_DATA}}", img_data_uri)
 
         # Affiche l'html via components.html dans un conteneur (frame_window)
         frame_window = left_side.empty()
-        frame_window.html(html_filled , height=pil_img.height)
+        frame_window.html(html_filled)
 
         # Puis utilise streamlit_js_eval uniquement pour récupérer les clics
         coords = streamlit_js_eval(js_expressions=["communication_data"], key="canvas_click")
