@@ -13,7 +13,7 @@ def load_yolo_model():
 
 model = load_yolo_model()
 
-st.title("🎯 YOLOv8 Video with Audio Playback")
+st.title("🎯 YOLOv8 Video")
 
 uploaded_file = st.file_uploader("Upload a video file", type=["mp4", "mov", "avi", "mkv"])
 
