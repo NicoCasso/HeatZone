@@ -77,6 +77,7 @@ class DatabaseManager2:
 
             session.add(screen)
             session.commit()
+            session.refresh(screen)
     
         if not screen :
             raise Exception("that screen does not exist")
