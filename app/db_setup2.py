@@ -19,14 +19,15 @@ def populate_db(engine : Engine):
         webcam = Screen(id_screen=1, name="webcam", is_web_cam=True)
         session.add(webcam)
         session.commit()
-        for id, interest_zone in get_interest_zones().items() :
-            interest_zone : InterestZone = interest_zone
+
+        for id, content in get_interest_zones().items() :
+            interest_zone : InterestZone = content
             zone = Zone(
                 id_zone = id, 
                 name= interest_zone.color_name, 
                 color = str(interest_zone.color),
                 x_left = min(interest_zone.rectangle.x1, interest_zone.rectangle.x2),
-                y_top = min(interest_zone.rectangle.x1, interest_zone.rectangle.x2),
+                y_top = min(interest_zone.rectangle.y1, interest_zone.rectangle.y2),
                 width = abs( interest_zone.rectangle.x2 - interest_zone.rectangle.x1 ),
                 height = abs( interest_zone.rectangle.y2 - interest_zone.rectangle.y1 )
             )

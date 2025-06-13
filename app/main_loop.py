@@ -31,6 +31,10 @@ def run_detection_loop(model : YOLO, db: DatabaseManager2, frame_window):
         st.error("❌ Impossible de lire le flux vidéo initial.")
         return
 
+    if not db_screen.width :
+        height, width, _ = prev_frame.shape
+        db_screen = db.update_screen_size(db_screen.id_screen, width, height)
+
     prev_gray = cv2.cvtColor(prev_frame, cv2.COLOR_BGR2GRAY)
 
     # Initialize session state values
@@ -145,6 +149,11 @@ def run_detection_loop(model : YOLO, db: DatabaseManager2, frame_window):
         cv2.putText(rgb_frame, "Zone Color: Before Logging", (10, 20), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255,255,255), 1)
         cv2.putText(rgb_frame, "Green Box: Person", (10, 40), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0,255,0), 1)
         cv2.putText(rgb_frame, "Orange Box: Already Logged", (10, 60), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0,165,255), 1)
+        cv2.putText(rgb_frame, 
+                    f"width: {str(db_screen.width)}, height: {str(db_screen.heigth)}", 
+                    (400, 400), 
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0,0,0), 1)
+         
 
         frame_window.image(rgb_frame, channels="RGB")
         prev_gray = gray

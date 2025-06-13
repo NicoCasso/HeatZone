@@ -24,13 +24,13 @@ class Rectangle() :
     
     def is_near_from2(self, other : Zone) -> bool :
         xi1 = max(self.x1, other.x_left)
-        xi2 = min(self.x2, other.x_left + other.width)
+        xi2 = min(self.x2, int(other.x_left + other.width))
         if xi1 > xi2 :
            return False
            
  
         yi1 = max(self.y1, other.y_top)
-        yi2 = min(self.y2, other.y_top+other.height)
+        yi2 = min(self.y2, int(other.y_top+other.height))
         if yi1 < yi2:
             return False
         

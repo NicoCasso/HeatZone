@@ -54,9 +54,38 @@ class DatabaseManager2:
     # region Screen
     #__________________________________________________________________________
     def get_webcam_screen(self) -> Screen :
+        screen = None
         with Session(self.engine) as session:
             statement = select(Screen).where(Screen.id_screen == 1)
             result = session.exec(statement)
-            return result.one()
+            screen = result.one()
+        
+        if not screen :
+            raise Exception("that screen does not exist")
+
+        return screen
+            
+        
+    def update_screen_size(self, screen_id: int, width: int, height : int) -> Screen:
+        screen = None
+        with Session(self.engine) as session:
+            statement = select(Screen).where(Screen.id_screen == screen_id)
+            screen = session.exec(statement).one()
+
+            screen.width = width
+            screen.heigth = height
+
+            session.add(screen)
+            session.commit()
+    
+        if not screen :
+            raise Exception("that screen does not exist")
+
+        return screen
+            
+
+
+           
+
     
     # endregion
