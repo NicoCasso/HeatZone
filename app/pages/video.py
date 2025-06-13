@@ -82,7 +82,7 @@ if uploaded_file is not None:
 else:
     st.info("Or run detection on the example video below if you don't want to upload a file.")
     if st.button("Run Detection on Example Video"):
-        example_video_path = "/home/david/Heat/HeatZone/app/Rick Astley - Never Gonna Give You Up (Official Video) (4K Remaster).mp4"
+        example_video_path = "app/Rick Astley - Never Gonna Give You Up (Official Video) (4K Remaster).mp4"
 
         if not os.path.exists(example_video_path):
             st.error("Example video not found.")
