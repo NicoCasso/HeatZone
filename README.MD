@@ -1,14 +1,17 @@
 # d'abord 
 
+dans le répertoire racine (heatzone)
+
 python -m venv .venv
 source .venv/bin/activate    
 pip install -r requirements.txt 
 
-# puis au choix 
+# creation de la base de données : 
 
-    streamlit run webcam_app.py
+    python app/db_setup2.py
 
-# ou bien 
+# puis lancement
 
-    streamlit run youtube_app.py
+    streamlit run app/main.py.py
+
   
