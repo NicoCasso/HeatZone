@@ -5,10 +5,19 @@ import numpy as np
 from datetime import datetime
 from rectangle import Rectangle
 from status import Status
-from utils import get_bbox_id
-from zone_config import get_interest_zones
+from utils import get_bbox_id, get_color_from_string
+from db_functions import DatabaseManager2
+from db_models import Zone
 
-def run_detection_loop(model, db, frame_window):
+from sqlalchemy import Engine
+
+#def run_detection_loop(model, db, frame_window):
+def run_detection_loop(model, engine, frame_window):
+    db = DatabaseManager2(engine)
+
+    db_screen =  db.get_webcam_screen()
+    db_zone_list = db.get_zone_list(screen_id = 1)
+
     camera = cv2.VideoCapture(0)
     if not camera.isOpened():
         st.error("❌ Impossible d'accéder à la webcam.")
@@ -35,7 +44,6 @@ def run_detection_loop(model, db, frame_window):
         rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
         gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
         results = model.track(rgb_frame, persist=True, conf=0.4)[0]
-        interest_zones = get_interest_zones()
         current_time = time.time()
 
         for box in results.boxes:
@@ -44,8 +52,8 @@ def run_detection_loop(model, db, frame_window):
 
             # Identify zone(s) near person
             near_zone_ids = [
-                zone.id for zone in interest_zones.values()
-                if current_rectangle.is_near_from(zone.rectangle)
+                db_zone.id_zone for db_zone in db_zone_list
+                if current_rectangle.is_near_from2(db_zone)
             ]
 
             cls_id = int(box.cls[0])
@@ -86,6 +94,7 @@ def run_detection_loop(model, db, frame_window):
                         if elapsed >= 2 and (current_time - last_count_time) > 10:
                             # Not counted recently
                             if person_id not in st.session_state["counted_people"][zone_id]:
+                                
                                 db.add_element(zone_id)
                                 db.add_time(zone_id, datetime.now().isoformat())
                                 st.session_state["counted_people"][zone_id].add(person_id)
@@ -100,7 +109,9 @@ def run_detection_loop(model, db, frame_window):
                     if person_id in st.session_state["counted_people"].get(zone_id, set()):
                         current_color = (0, 165, 255)  # orange (already counted)
                     else:
-                        current_color = interest_zones[zone_id].color  # zone color
+                        db_zone : Zone = next(filter(lambda dbz: dbz.id_zone==zone_id, db_zone_list))
+                        color_from_db = get_color_from_string(db_zone.color)
+                        current_color = color_from_db  # zone color
                     break
             else:
                 current_color = (0, 255, 0)  # green
@@ -118,12 +129,12 @@ def run_detection_loop(model, db, frame_window):
             )
 
         # Draw zones
-        for zone in interest_zones.values():
+        for zone in db_zone_list:
             cv2.rectangle(
                 rgb_frame,
-                (zone.rectangle.x1, zone.rectangle.y1),
-                (zone.rectangle.x2, zone.rectangle.y2),
-                zone.color,
+                (zone.x_left, zone.y_top),
+                ((zone.x_left + zone.width), (zone.y_top + zone.height)),
+                get_color_from_string(db_zone.color),
                 3,
             )
 

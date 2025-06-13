@@ -1,3 +1,5 @@
+from db_models import Zone
+
 class Rectangle() :  ...
 
 class Rectangle() :
@@ -9,13 +11,29 @@ class Rectangle() :
 
     def is_near_from(self, other : Rectangle) -> bool :
         xi1 = max(self.x1, other.x1)
-        yi1 = max(self.y1, other.y1)
         xi2 = min(self.x2, other.x2)
-        yi2 = min(self.y2, other.y2)
-
-        if xi1 < xi2 and yi1 < yi2:
-            return True
+        if xi1 > xi2 :
+           return False
         
-        return False
+        yi1 = max(self.y1, other.y1)
+        yi2 = min(self.y2, other.y2)
+        if yi1 > yi2:
+            return False
+        
+        return True
+    
+    def is_near_from2(self, other : Zone) -> bool :
+        xi1 = max(self.x1, other.x_left)
+        xi2 = min(self.x2, other.x_left + other.width)
+        if xi1 > xi2 :
+           return False
+           
+ 
+        yi1 = max(self.y1, other.y_top)
+        yi2 = min(self.y2, other.y_top+other.height)
+        if yi1 < yi2:
+            return False
+        
+        return True
 
 

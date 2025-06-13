@@ -7,18 +7,19 @@ class Screen(SQLModel, table = True):
     name : str
     is_web_cam : bool
     video_file : Optional[str] = Field(default=None) 
-    width : float
-    heigth : float
+    width : Optional[int] = Field(default=None) 
+    heigth : Optional[int] = Field(default=None) 
 
     zone_list : list["Zone"] = Relationship(back_populates="screen")
 
 class Zone(SQLModel, table = True):
     id_zone : Optional[int] = Field(default=None, primary_key=True)
-    nom_cours: str
-    x_left : float
-    y_top : float
-    width : float
-    height : float
+    name : str
+    color : str
+    x_left : int
+    y_top : int
+    width : int
+    height : int
 
     screen_id : Optional[int] = Field(default=None, foreign_key="screen.id_screen")
     screen: Optional[Screen] = Relationship(back_populates="zone_list")
