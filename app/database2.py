@@ -8,7 +8,6 @@ class DatabaseManager2:
     def __init__(self, engine : Engine) :
         self.engine = engine
         
-
     #__________________________________________________________________________
     #
     # region Zones
@@ -19,28 +18,13 @@ class DatabaseManager2:
             result = session.exec(statement)
             return list(result)
 
-
-    def insert_zone(self, zone_id):
-        self.cursor.execute("SELECT id FROM ZONES WHERE id=?", (zone_id,))
-        if self.cursor.fetchone() is None:
-            self.cursor.execute("INSERT INTO ZONES (id, number_of_stops) VALUES (?, 0)", (zone_id,))
-            self.conn.commit()
-
-    def add_element(self, id):
-        self.cursor.execute('''
-            UPDATE ZONES
-            SET number_of_stops = number_of_stops + 1
-            WHERE id = ?;
-        ''', (id,))
-        self.conn.commit()
-
     
     # endregion
     #__________________________________________________________________________
     #
     # region Passage
     #__________________________________________________________________________
-    def add_passage(self, zone_id, date : dt.datetime):
+    def add_passage(self, zone_id : int, date : dt.datetime):
         with Session(self.engine) as session:
             passage = Passage(
                 zone_id = zone_id, 
@@ -49,6 +33,20 @@ class DatabaseManager2:
             session.add(passage)
             session.commit()
 
+    def get_passage_count(self, zone_id : int, period_start, period_end : dt.datetime ) -> int:
+        passage_count = 0
+        with Session(self.engine) as session:
+            statement = select(Passage).where(Passage.zone_id == zone_id)
+            for passage in session.exec(statement).fetchall() :
+                if passage.date < period_start :
+                    continue
+                
+                if passage.date > period_end : 
+                    continue
+
+                passage_count +=1 
+
+        return passage_count
 
     # endregion
     #__________________________________________________________________________

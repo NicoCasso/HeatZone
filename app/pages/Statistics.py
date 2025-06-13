@@ -1,33 +1,36 @@
 import streamlit as st
 import plotly.graph_objects as go
 import numpy as np
-from database import DatabaseManager
+from db_setup2 import get_engine
+from database2 import DatabaseManager2
+from db_models import Screen, Zone, Passage
 import datetime
 
 # --- Initialize Database ---
-db = DatabaseManager("data/zones.db")
+engine = get_engine()
+db = DatabaseManager2(engine)
 
 # --- UI ---
 st.title("📊 Statistiques des zones d'intérêt")
 
 # --- Date selector ---
 selected_day = st.date_input("📅 Sélectionnez un jour", datetime.date.today())
-start_of_day = selected_day.strftime("%Y-%m-%d 00:00:00")
-end_of_day = (selected_day + datetime.timedelta(days=1)).strftime("%Y-%m-%d 00:00:00")
+#start_of_day = selected_day.strftime("%Y-%m-%d 00:00:00")
+#end_of_day = (selected_day + datetime.timedelta(days=1)).strftime("%Y-%m-%d 00:00:00")
 
+period_start = datetime.datetime(selected_day.year, selected_day.month, selected_day.day, 0, 0, 0)
+period_end = period_start + datetime.timedelta(days=1)
 
 # Format selected_day as string
 selected_day_str = selected_day.strftime("%Y-%m-%d")
 
+current_screen = db.get_webcam_screen()
+db_zone_list = db.get_zone_list(current_screen.id_screen)
+
 # --- Fetch zone data for selected day ---
 zone_counts = {}
-for zone_id in [1, 2]:
-    db.cursor.execute("""
-        SELECT count(zone_id) FROM PASSAGE 
-        WHERE zone_id = ? AND date >= ? AND date < ?
-    """, (zone_id, start_of_day, end_of_day))
-    result = db.cursor.fetchone()
-    zone_counts[zone_id] = result[0] if result else 0
+for db_zone in db_zone_list :
+    zone_counts[db_zone.id_zone] = db.get_passage_count(db_zone.id_zone, period_start, period_end)
 
 # --- Show metrics ---
 st.metric("Zone 1 (Bleu)", zone_counts[1])

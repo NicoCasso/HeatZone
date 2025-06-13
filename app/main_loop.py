@@ -1,22 +1,25 @@
+
 import streamlit as st
+
+from ultralytics import YOLO
 import cv2
-import time
 import numpy as np
+
+import time
 from datetime import datetime
 from rectangle import Rectangle
 from status import Status
 from utils import get_bbox_id, get_color_from_string
-from db_functions import DatabaseManager2
-from db_models import Zone
+from database2 import DatabaseManager2
+from db_models import Screen, Zone
 
 from sqlalchemy import Engine
 
 #def run_detection_loop(model, db, frame_window):
-def run_detection_loop(model, engine, frame_window):
-    db = DatabaseManager2(engine)
+def run_detection_loop(model : YOLO, db: DatabaseManager2, frame_window):
 
     db_screen =  db.get_webcam_screen()
-    db_zone_list = db.get_zone_list(screen_id = 1)
+    db_zone_list = db.get_zone_list(screen_id = db_screen.id_screen)
 
     camera = cv2.VideoCapture(0)
     if not camera.isOpened():
@@ -95,8 +98,7 @@ def run_detection_loop(model, engine, frame_window):
                             # Not counted recently
                             if person_id not in st.session_state["counted_people"][zone_id]:
                                 
-                                db.add_element(zone_id)
-                                db.add_time(zone_id, datetime.now().isoformat())
+                                db.add_passage(zone_id, datetime.now())
                                 st.session_state["counted_people"][zone_id].add(person_id)
                                 st.session_state["last_counted"][zone_id][person_id] = current_time
                 else:
@@ -110,8 +112,9 @@ def run_detection_loop(model, engine, frame_window):
                         current_color = (0, 165, 255)  # orange (already counted)
                     else:
                         db_zone : Zone = next(filter(lambda dbz: dbz.id_zone==zone_id, db_zone_list))
-                        color_from_db = get_color_from_string(db_zone.color)
-                        current_color = color_from_db  # zone color
+                        if db_zone :
+                            color_from_db = get_color_from_string(db_zone.color)
+                            current_color = color_from_db  # zone color
                     break
             else:
                 current_color = (0, 255, 0)  # green
@@ -129,11 +132,11 @@ def run_detection_loop(model, engine, frame_window):
             )
 
         # Draw zones
-        for zone in db_zone_list:
+        for db_zone in db_zone_list:
             cv2.rectangle(
                 rgb_frame,
-                (zone.x_left, zone.y_top),
-                ((zone.x_left + zone.width), (zone.y_top + zone.height)),
+                (db_zone.x_left, db_zone.y_top),
+                ((db_zone.x_left + db_zone.width), (db_zone.y_top + db_zone.height)),
                 get_color_from_string(db_zone.color),
                 3,
             )
@@ -148,6 +151,6 @@ def run_detection_loop(model, engine, frame_window):
         time.sleep(0.03)
 
     camera.release()
-    db.close()
+    # db.close()
 
 
