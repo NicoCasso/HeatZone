@@ -17,7 +17,7 @@ engine = get_engine()
 db = DatabaseManager2(engine)
 
 # Render UI (buttons etc) — this should set st.session_state["run"]
-frame_window = setup_ui()
+frame_window = setup_ui(db, 1)
 
 # Ensure 'run' key exists in session_state
 if "run" not in st.session_state:

@@ -18,6 +18,17 @@ class DatabaseManager2:
             result = session.exec(statement)
             return list(result)
 
+    def delete_zone(self, zone_id: int) -> bool:
+        with Session(self.engine) as session:
+            statement = select(Zone).where(Zone.id_zone == zone_id)
+            results = session.exec(statement)
+            linked_zone = results.one()
+            session.delete(linked_zone)
+            session.commit()
+            return True
+        
+        return False
+
     
     # endregion
     #__________________________________________________________________________
