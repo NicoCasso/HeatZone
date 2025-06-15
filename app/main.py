@@ -1,4 +1,5 @@
 import streamlit as st
+from streamlit.delta_generator import DeltaGenerator
 from model_utils import load_model
 
 #from db_setup import initialize_database
@@ -17,7 +18,7 @@ engine = get_engine()
 db = DatabaseManager2(engine)
 
 # Render UI (buttons etc) — this should set st.session_state["run"]
-frame_window = setup_ui(db, 1)
+frame_window = setup_ui(st._main, db, 1)
 
 # Ensure 'run' key exists in session_state
 if "run" not in st.session_state:

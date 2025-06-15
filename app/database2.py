@@ -17,6 +17,19 @@ class DatabaseManager2:
             statement = select(Zone).where(Screen.id_screen == screen_id)
             result = session.exec(statement)
             return list(result)
+        
+    def insert_zone(self, screen_id: int, name: str, color:str, x_left:int, y_top:int, width:int, height:int ) :
+        with Session(self.engine) as session:
+            new_zone = Zone(
+                name=name, 
+                color = color, 
+                x_left= x_left,
+                y_top = y_top,
+                width = width ,
+                height = height)            
+        
+            session.add(new_zone)
+            session.commit()
 
     def delete_zone(self, zone_id: int) -> bool:
         with Session(self.engine) as session:
@@ -64,10 +77,10 @@ class DatabaseManager2:
     #
     # region Screen
     #__________________________________________________________________________
-    def get_webcam_screen(self) -> Screen :
+    def get_screen(self, screen_id) -> Screen :
         screen = None
         with Session(self.engine) as session:
-            statement = select(Screen).where(Screen.id_screen == 1)
+            statement = select(Screen).where(Screen.id_screen == screen_id)
             result = session.exec(statement)
             screen = result.one()
         
@@ -75,7 +88,9 @@ class DatabaseManager2:
             raise Exception("that screen does not exist")
 
         return screen
-            
+    
+    def get_webcam_screen(self) -> Screen :
+        return self.get_screen(1)
         
     def update_screen_size(self, screen_id: int, width: int, height : int) -> Screen:
         screen = None

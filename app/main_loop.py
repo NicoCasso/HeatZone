@@ -19,7 +19,7 @@ from sqlalchemy import Engine
 def run_detection_loop(model : YOLO, db: DatabaseManager2, frame_window):
 
     db_screen =  db.get_webcam_screen()
-    db_zone_list = db.get_zone_list(screen_id = db_screen.id_screen)
+    db_zone_list = db.get_zone_list(db_screen.id_screen)
 
     camera = cv2.VideoCapture(0)
     if not camera.isOpened():
