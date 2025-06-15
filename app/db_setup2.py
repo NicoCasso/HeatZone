@@ -29,7 +29,8 @@ def populate_db(engine : Engine):
                 x_left = min(interest_zone.rectangle.x1, interest_zone.rectangle.x2),
                 y_top = min(interest_zone.rectangle.y1, interest_zone.rectangle.y2),
                 width = abs( interest_zone.rectangle.x2 - interest_zone.rectangle.x1 ),
-                height = abs( interest_zone.rectangle.y2 - interest_zone.rectangle.y1 )
+                height = abs( interest_zone.rectangle.y2 - interest_zone.rectangle.y1 ),
+                screen_id = webcam.id_screen
             )
             session.add(zone)
 

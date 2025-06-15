@@ -10,7 +10,7 @@ class Screen(SQLModel, table = True):
     width : Optional[int] = Field(default=None) 
     heigth : Optional[int] = Field(default=None) 
 
-    zone_list : list["Zone"] = Relationship(back_populates="screen")
+    #zone_list : list["Zone"] = Relationship(back_populates="screen")
 
 class Zone(SQLModel, table = True):
     id_zone : Optional[int] = Field(default=None, primary_key=True)
@@ -22,7 +22,7 @@ class Zone(SQLModel, table = True):
     height : int
 
     screen_id : Optional[int] = Field(default=None, foreign_key="screen.id_screen")
-    screen: Optional[Screen] = Relationship(back_populates="zone_list")
+    #screen: Optional[Screen] = Relationship(back_populates="zone_list")
 
 
 class Passage(SQLModel, table = True):

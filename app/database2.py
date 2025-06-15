@@ -14,8 +14,8 @@ class DatabaseManager2:
     #__________________________________________________________________________
     def get_zone_list(self, screen_id : int) -> list[Zone]:
         with Session(self.engine) as session:
-            statement = select(Zone).where(Screen.id_screen == screen_id)
-            result = session.exec(statement)
+            statement = select(Zone).where(Zone.screen_id == screen_id)
+            result = session.exec(statement).all()
             return list(result)
         
     def insert_zone(self, screen_id: int, name: str, color:str, x_left:int, y_top:int, width:int, height:int ) :
@@ -26,7 +26,8 @@ class DatabaseManager2:
                 x_left= x_left,
                 y_top = y_top,
                 width = width ,
-                height = height)            
+                height = height, 
+                screen_id = screen_id)           
         
             session.add(new_zone)
             session.commit()
