@@ -1,5 +1,7 @@
 streamlit
+sqlmodel
 opencv-python
 numpy
 ultralytics
 pillow
+plotly
